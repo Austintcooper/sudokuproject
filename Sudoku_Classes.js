@@ -31,9 +31,15 @@ class SudokuSegment {
 // Note!!! Dimension NEEDS to be a perfect square to generate a valid sudoku grids 
 class SudokuGrid {
     constructor(dimension) {
-        // Here we create the array that will hold every segment object
+        // Creates all required class variables
         this.gridArr = [];
         this.gridDimension = dimension;
+        this.dimensionRoot = Math.sqrt(this.gridDimension);
+        this.quadrantArray = [];
+        // here we initialize an array containing all the bounds needed for quadrant generation
+        for(let i = 0; i <= this.dimensionRoot; i++) {
+            this.quadrantArray[i] = i*this.dimensionRoot;
+        }
         // This loop will create dimension squared segments to fill the grid 
         for(let i = 0; i < dimension**2; i++) {
             // Segment class arguements are as follows: Value, Position X, Position Y, Quadrant
@@ -63,21 +69,13 @@ class SudokuGrid {
         // where the denominator of said fraction is the root of dimension (i.e 1/2, 1/3, 1/4, 1/5)
         // By multiplying the result by dimension we give ourselves a whole number representing the denominator then adding this to the result in the conditional
         // Gives us our quadrant
-        var dimensionRoot = Math.sqrt(this.defaultValue);
-        var yOffset = (Math.ceil(yVal/dimensionRoot)-1)*dimensionRoot;
-        var quadrantArray = [];
-        var returnVal = 0;
-        for(let i = 0; i <= dimensionRoot; i++) {
-            quadrantArray[i] = i*dimensionRoot;
-            console.log("in loop");
-        }
-        for(let i = 0; i < quadrantArray.length; i++) {
-            if(xVal >= quadrantArray[i] && xVal < quadrantArray[i+1]) {
-                console.log((i+1)+yOffset);
+        var yOffset = (Math.ceil(yVal/this.dimensionRoot)-1)*this.dimensionRoot;
+        var returnVal = -1;
+        for(let i = 0; i < this.quadrantArray.length; i++) {
+            //console.log(xVal + ":" + yVal);
+            if(xVal > this.quadrantArray[i] && xVal <= this.quadrantArray[i+1]) {
+                //console.log("here");
                 returnVal = i+1+yOffset;
-            }
-            else {
-                return -1;
             }
         }
         return returnVal;
@@ -109,13 +107,13 @@ class SudokuGrid {
 
     convertCoordToIndex(x, y) {
         // The math for this is as follows:
-        // Our aray runs from 0-80 (81 entries)
+        // Our aray runs from 0-dimension^2
         // At a y of 0 x is equal to the index+1
-        // By subtracting 1 from y then multiplying it by 9 we get a number that,
+        // By subtracting 1 from y then multiplying it by dimension we get a number that,
         // when added to x is index+1 for any y value
         // The first line gives us our index offset by 1
         // The return statement then adjusts it by 1 so that temp-1 = index 
-        let temp = x+(9*(y-1));
+        let temp = x+(this.gridDimension*(y-1));
         return temp-1;
     }
 
@@ -144,14 +142,14 @@ class SudokuGrid {
     // This is the easiest part to check, as the array is organized in a way to facilitate this
     checkColumnComplete(column) {
         // All that needs to be done math wise is find the beginning index and end index of the row
-        // Which can be done using the convertCoordToIndex function, and feeding it an x of 1 and 9 with y set to column
+        // Which can be done using the convertCoordToIndex function, and feeding it an x of 1 and dimension with y set to column
         let start = convertCoordToIndex(1, column);
-        let end = convertCoordToIndex(9, column);
+        let end = convertCoordToIndex(this.gridDimension, column);
     }
 
     checkRowComplete(row) {
         let start = this.convertCoordToIndex(1, row);
-        let end = this.convertCoordToIndex(9, row);
+        let end = this.convertCoordToIndex(this.gridDimension, row);
         
     }
 
@@ -164,7 +162,8 @@ class SudokuGrid {
     // We will have an array of empty booleans, and flip them on first occurence of each number.
     // should the number appear again we will break the loop and return an error
     arrayToCheck(array) {
-        let checkerArray = [false, false, false, false, false, false, false, false, false];
+        // Array needs to be populated with dimension number of booleans
+        let checkerArray = [];
         // I imagine this is bad practice however i cannot think of a better way offhand to improve it       
         for(let i = 0; i < array.length; i++) {
             let numberToCheck = array[i];

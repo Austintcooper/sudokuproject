@@ -6,11 +6,17 @@ class SudokuSegment {
     this.value = value;
     this.posX = posX;
     this.posY = posY;
+    this.index = 0;
     this.quadrant = quadrant;
+    this.possibleValues = [];
     }
 
     setValue(value) {
         this.value = value;
+    }
+
+    setIndex(index) {
+        this.index = index;
     }
 
     //This is for debugging. Will print info to console
@@ -24,6 +30,24 @@ class SudokuSegment {
     //Prints just the value to console
     printValue() {
         console.log("Value: "+this.value);
+    }
+
+    setPossibilities(dimension) {
+        for (let i = 1; i <= dimension; i++) {
+            this.possibleValues.push(i);
+        }
+    }
+
+    getNumPossibilities() {
+        return this.possibleValues.length;
+    }
+
+    removePossibility(value) {
+        for(let i = this.possibleValues.length; i--;) {
+            if(this.possibleValues[i] === value) {
+                this.possibleValues.splice[i, value];
+            }
+        }
     }
 }
 
@@ -59,8 +83,11 @@ class SudokuGrid {
             var defaultValue = 0;
             var quadrant = this.evaluateQuadrant(x,y);
             var segment = new SudokuSegment(defaultValue,x,y,quadrant)
+            segment.setPossibilities(dimension);
+            segment.setIndex(this.convertCoordToIndex(segment.posX, segment.posY));
             this.gridArr.push(segment);
         }    
+        this.sortGrid();
     }
 
     evaluateQuadrant(xVal, yVal) {
@@ -169,12 +196,29 @@ class SudokuGrid {
     checkQuadrantComplete(quadrant) {
         // This is going to keep track of which fraction of the dimension the quadrant is in
         let quadCheckerY = 0;
-        //do x first then y
-        for (let i = 0; i <= this.dimensionRoot; i++) {
+        let quadCheckerX = quadrant;
+        var arrayToPass = [];
+        // this finds the fraction of the grid the quadrant is in in terms of the y dimension
+        for(let i = 0; i <= this.dimensionRoot; i++) {
             if(quadrant > i*this.dimensionRoot && quadrant <= (i+1)*this.dimensionRoot) {
                 quadCheckerY = i;
             }
         }
+        // if the quadrant number is larger than the root we can reduce the quadrant by the root
+        // until it falls in the bounds of > 0 and <= root. this way we can evaluate all quadrants with
+        // the same math.
+        while(quadCheckerX > this.dimensionRoot) {
+            quadCheckerX -= this.dimensionRoot;
+        }
+        // We adjust the value by -1 to make it work with the index at 0
+        quadCheckerX--;
+        // finally we need to add every coordinate set to the array to check
+        for(let i = 1; i <= this.dimensionRoot; i++ ) {
+            for( let k = 1; k <= this.dimensionRoot; k++) {
+                arrayToPass.push(this.gridArr[this.convertCoordToIndex((this.dimensionRoot*quadCheckerX) + i, (this.dimensionRoot*quadCheckerY) + k)].value);
+            }
+        }
+        return this.arrayToCheck(arrayToPass);
     }
 
     // This function will check an array to see if it contains exactly one occurence of the numbers 1-9
@@ -201,5 +245,90 @@ class SudokuGrid {
             }
         }
         return true;
+    }
+
+    // This will print a grid representaiton of the array to the console
+    printArray() {
+        let str = '|';
+        let spacer = '';
+        let spacerDimension = 3*this.gridDimension + this.dimensionRoot+1;
+        for (let i = 0; i < spacerDimension; i++) {
+            spacer += '-'
+        }
+        // For loop starts at one for modulus to work
+        for(let i = 1; i <= this.gridArr.length; i++) {
+            // i-1 offsets the foor loop to grab the proper value from the array since array index starts at 0
+            // This code doesnt need to be pretty, this is only a text representation of the grid for test purposes
+            str += " " + this.gridArr[i-1].value + " ";
+            if(i % this.dimensionRoot == 0) {
+                str += "|";
+            }
+            if(i % this.gridDimension == 0){
+                str += '\n';
+                if((i % (this.dimensionRoot*this.gridDimension) == 0) && (i != this.gridArr.length)){
+                    str += spacer;
+                    str += "\n";
+                }
+                if(i != this.gridDimension**2) {
+                    str += '|';
+                }               
+            }           
+        }
+        console.log(str);
+    }
+
+    // From here on down will be every function that "solves" the grid
+    // The solver will be integrated into the grid to make sure whenever we have a grid we can also solve it
+    // Hopefully this will make things easier when it come to implementing this in html
+
+    // The sorting algorith is going to go like this:
+    // Start by calculating what numbers can go where
+    // rank each segment by the number of options that can go in each segment
+    // segments with fewer options have priority over segments with more
+    // If there is a tie, we will resort to a random choice
+    sortGrid() {
+        // Get the index of the segment with the least possible options
+        let indexToSet = this.getLeastOptionSegment();
+        let valueToSet = this.chooseValueToSet(indexToSet);
+        this.setIndexValue(indexToSet, valueToSet);
+
+    }
+
+    //This function will return the index number of the segment with the least possible choices, 
+    // or in the case of a tie a random segment with the least possible choices
+    getLeastOptionSegment() {
+        let indexArray = [];
+        let checkerValue = this.gridDimension;
+        for (let i = 0; i < this.gridDimension**2; i++) {
+            if(this.gridArr[i].getNumPossibilities() == checkerValue) {
+                indexArray.push(i);
+            }
+            else if(this.gridArr[i].getNumPossibilities() < checkerValue) {
+                indexArray = [];
+                indexArray.push(i);
+                checkerValue = this.gridArr[i].getNumPossibilities;
+            }
+        }
+        if(indexArray.length > 1) {
+            return this.gridArr[indexArray[Math.floor(Math.random()*indexArray.length)]].index;
+        }
+        else {
+            return this.gridArr[indexArray[0]].index;
+        }
+    }
+
+    // This function will pull a number from the possible values of a segment
+    chooseValueToSet(index) {
+        return this.gridArr[index].possibleValues[Math.floor(Math.random()*this.gridArr[index].possibleValues.length)];
+    }
+
+    // Will remove the assigned value from the column, row and quadrant
+    modifyPossibleValues(index, value) {
+        columnToModify = this.gridArr[index].posY;
+        rowToModify = this.gridArr[index].posX;
+        // We will start by finding the index of every segment that needs to be modified
+        // then use the splice function to remove the value from the list of possible values
+        this.getCoordValue
+
     }
 }
